@@ -35,3 +35,15 @@ class DB(object):
             if entry.id == theId:
                 break
         del Tb[index]
+
+    def getRowFromTable(self, theTable, theId):
+        Tb = self._db[theTable]['table']
+        for index, entry in enumerate(Tb):
+            if entry.id == theId:
+                break
+        return Tb[index]
+
+    def getAllRowFromTable(self, theTable):
+        Tb = self._db[theTable]['table']
+        for entry in Tb:
+            yield entry
