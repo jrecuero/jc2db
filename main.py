@@ -1,11 +1,4 @@
-import sys
 import db
-
-
-sys.path.insert(0, 'jc2li.zip')
-import jc2li.loggerator as loggerator
-logger = loggerator.getLoggerator('main')
-logger.info('MAIN APPLICATION')
 
 
 def person(db, table, row):
@@ -19,27 +12,28 @@ def person(db, table, row):
 def company(db, table, row):
     for link in table.RegisterLinks:
         if getattr(row, link._field) == link._value:
-            logger.display('there is a link to table {0} row {1}'.format(link._linkTable, link._linkRow))
+            print('there is a link to table {0} row {1}'.format(link._linkTable, link._linkRow))
             db.getRowFromTable(link._linkTable, link._linkRow).update(active=True)
 
 
-myDB = db.DB()
-myDB.createTable('Person', {'name': '---', 'age': 0, 'company': '---', 'active': False})
-myDB.createTable('Company', {'NAME': '***', 'COUNTRY': '***'})
-myDB.getTableByName('Person').RowCb.append(person)
-myDB.getTableByName('Company').RowCb.append(company)
+def main():
+    myDB = db.DB('main')
+    myDB.createTable('Person', {'name': '---', 'age': 0, 'company': '---', 'active': False})
+    myDB.createTable('Company', {'NAME': '***', 'COUNTRY': '***'})
+    myDB.getTableByName('Person').RowCb.append(person)
+    myDB.getTableByName('Company').RowCb.append(company)
 
-jc = myDB.addRowToTable('Person', name='Jose Carlos', age=50, company='CISCO')
-logger.display(jc)
-matias = myDB.addRowToTable('Person', name='Matias', age=50, company='CISCO')
-logger.display(matias)
-joselu = myDB.addRowToTable('Person', name='Joselu', age=50, company='NOKIA')
-logger.display(joselu)
-cisco = myDB.addRowToTable('Company', NAME='CISCO', COUNTRY='USA')
-logger.display(cisco)
-_jc = myDB.getRowFromTable('Person', jc.id)
-_matias = myDB.getRowFromTable('Person', matias.id)
-_joselu = myDB.getRowFromTable('Person', joselu.id)
-logger.display(_jc)
-logger.display(_matias)
-logger.display(_joselu)
+    jc = myDB.addRowToTable('Person', name='Jose Carlos', age=50, company='CISCO')
+    print(jc)
+    matias = myDB.addRowToTable('Person', name='Matias', age=50, company='CISCO')
+    print(matias)
+    joselu = myDB.addRowToTable('Person', name='Joselu', age=50, company='NOKIA')
+    print(joselu)
+    cisco = myDB.addRowToTable('Company', NAME='CISCO', COUNTRY='USA')
+    print(cisco)
+    _jc = myDB.getRowFromTable('Person', jc.id)
+    _matias = myDB.getRowFromTable('Person', matias.id)
+    _joselu = myDB.getRowFromTable('Person', joselu.id)
+    print(_jc)
+    print(_matias)
+    print(_joselu)

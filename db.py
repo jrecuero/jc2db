@@ -90,7 +90,8 @@ class DB_ROW(object):
 
 class DB(object):
 
-    def __init__(self):
+    def __init__(self, theName):
+        self.Name = theName
         self._db = {}
 
     def createTable(self, theTable, theFields):
