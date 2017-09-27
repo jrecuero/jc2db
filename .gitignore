@@ -102,4 +102,5 @@ history.txt
 
 # jupyter notebook
 .ipynb_checkpoints/
-Untitled.ipynb
+*.ipynb
+_db_
