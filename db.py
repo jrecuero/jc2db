@@ -145,14 +145,18 @@ class DB(object):
     def save(self):
         if not os.path.exists('_db_'):
             os.makedirs('_db_')
+        path = os.path.join('_db_', self.Name)
+        if not os.path.exists(path):
+            os.makedirs(path)
         for tbName, tb in self._db.items():
-            tb.save(os.path.join('_db_', '{0}_db.json'.format(tbName)))
+            tb.save(os.path.join(path, '{0}_db.json'.format(tbName)))
 
     def load(self):
-        if not os.path.exists('_db_'):
+        path = os.path.join('_db_', self.Name)
+        if not os.path.exists(path):
             return
-        listDir = os.listdir('_db_')
+        listDir = os.listdir(path)
         for fName in listDir:
             tbName = fName.split('/')[-1].split('_db.json')[0]
-            tb = DB_TABLE.load(tbName)
+            tb = DB_TABLE.load(tbName, os.path.abspath(os.path.join(path, fName)))
             self._db.update({tbName: tb})
