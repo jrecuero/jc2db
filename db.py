@@ -4,10 +4,10 @@ import json
 
 class DB_LINK(object):
 
-    def __init__(self, theTable, theField, theValue, theLinkTable, theLinkRow):
+    def __init__(self, theTableName, theField, theValue, theLinkTable, theLinkRow):
         self._linkTable = theLinkTable
         self._linkRow = theLinkRow
-        self._table = theTable
+        self._table = theTableName
         self._field = theField
         self._value = theValue
 
@@ -83,6 +83,9 @@ class DB_ROW(object):
         for k, v in kwargs.items():
             setattr(self, k, v)
 
+    def clone(self):
+        return self.__class__(**self.__dict__)
+
     def __repr__(self):
         st = "\n".join(['{0}: {1}'.format(k, v) for k, v in self.getRow().items()])
         return st + '\n'
@@ -93,54 +96,81 @@ class DB(object):
     def __init__(self, theName):
         self.Name = theName
         self._db = {}
+        self._shade = {}
 
-    def createTable(self, theTable, theFields):
-        tb = DB_TABLE(theTable, theFields)
-        self._db.update({theTable: tb})
+    def createTable(self, theTableName, theFields):
+        tb = DB_TABLE(theTableName, theFields)
+        self._db.update({theTableName: tb})
         return tb
 
-    def getTableByName(self, theTable):
-        tb = self._db[theTable]
+    def getTableByName(self, theTableName):
+        tb = self._db[theTableName]
         return tb
 
     def getAllTableNames(self):
         for name in self._db.keys():
             yield name
 
-    def addRowToTable(self, theTable, **kwargs):
-        tb = self._db[theTable]
+    def addRowToTable(self, theTableName, **kwargs):
+        tb = self._db[theTableName]
         row = tb.createRow(**kwargs)
         tb.Table.append(row)
         for cb in tb.RowCb:
             cb(self, tb, row)
         return row
 
-    def updateRowFromTable(self, theTable, theId, **kwargs):
-        tb = self._db[theTable].Table
+    def updateRowFromTable(self, theTableName, theId, **kwargs):
+        tb = self._db[theTableName].Table
         for entry in tb:
             if entry.id == theId:
                 break
         entry.update(**kwargs)
         return entry
 
-    def deleteRowFromTable(self, theTable, theId):
-        tb = self._db[theTable].Table
+    def deleteRowFromTable(self, theTableName, theId):
+        tb = self._db[theTableName].Table
         for index, entry in enumerate(tb):
             if entry.id == theId:
                 break
         del tb[index]
 
-    def getRowFromTable(self, theTable, theId):
-        tb = self._db[theTable].Table
+    def getRowFromTable(self, theTableName, theId):
+        tb = self._db[theTableName].Table
         for entry in tb:
             if entry.id == theId:
-                break
-        return entry
+                return entry
+        return None
 
-    def getAllRowFromTable(self, theTable):
-        tb = self._db[theTable].Table
+    def getAllRowFromTable(self, theTableName):
+        tb = self._db[theTableName].Table
         for entry in tb:
             yield entry
+
+    def shadeTable(self, theTableName):
+        fields = self._db[theTableName].Fields
+        tb = DB_TABLE(theTableName, fields)
+        self._shade.update({theTableName: {'table': tb, 'rows': {}}})
+
+    def shadeRow(self, theTableName, theRowId):
+        shadeTable = self._shade[theTableName]
+        row = self.getRowFromTable(theTableName, theRowId)
+        if row is None:
+            row = shadeTable['table'].createRow()
+        shadeTable['rows'].update({theRowId: row.clone()})
+
+    def shadeUpdateRow(self, theTableName, theRowId, **kwargs):
+        shadeTable = self._shade[theTableName]
+        shadeRow = shadeTable['rows'][theRowId]
+        shadeRow.update(**kwargs)
+
+    def shadeDiscard(self):
+        self._shade = {}
+
+    def shadeCommit(self):
+        for tbname, tbentry in self._shade.items():
+            for rowid, row in tbentry['rows'].items():
+                self.updateRowFromTable(tbname, rowid, **row.getRow())
+        self.shadeDiscard()
 
     def save(self):
         if not os.path.exists('_db_'):
