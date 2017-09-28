@@ -59,6 +59,15 @@ class DB_TABLE(object):
         row.update(**kwargs)
         return row
 
+    def createShadeRow(self, theNewFlag=False):
+        kwargs = {}
+        if theNewFlag:
+            self.RowId += 1
+            kwargs['id'] = self.RowId
+        row = self.Row()
+        row.update(**kwargs)
+        return row
+
     def registerLink(self, theField, theValue, theLinkTable, theLinkRow):
         self.RegisterLinks.append(DB_LINK(self.Name, theField, theValue, theLinkTable, theLinkRow))
 
@@ -92,6 +101,8 @@ class DB_ROW(object):
 
 
 class DB(object):
+
+    __TR_ID = 0
 
     def __init__(self, theName):
         self.Name = theName
@@ -146,31 +157,58 @@ class DB(object):
         for entry in tb:
             yield entry
 
-    def shadeTable(self, theTableName):
+    def shadeTable(self, theTrId, theTableName):
         fields = self._db[theTableName].Fields
         tb = DB_TABLE(theTableName, fields)
-        self._shade.update({theTableName: {'table': tb, 'rows': {}}})
+        self._shade[theTrId].update({theTableName: {'table': tb, 'rows': {}}})
 
-    def shadeRow(self, theTableName, theRowId):
-        shadeTable = self._shade[theTableName]
-        row = self.getRowFromTable(theTableName, theRowId)
-        if row is None:
-            row = shadeTable['table'].createRow()
-        shadeTable['rows'].update({theRowId: row.clone()})
+    def shadeRow(self, theTrId, theTableName, theRowId):
+        shadeTable = self._shade[theTrId][theTableName]
+        newRowFlag = True if self.getRowFromTable(theTableName, theRowId) is None else False
+        row = shadeTable['table'].createShadeRow(newRowFlag)
+        shadeTable['rows'].update({theRowId: row})
 
-    def shadeUpdateRow(self, theTableName, theRowId, **kwargs):
-        shadeTable = self._shade[theTableName]
+    def shadeUpdateRow(self, theTrId, theTableName, theRowId, **kwargs):
+        shadeTable = self._shade[theTrId][theTableName]
         shadeRow = shadeTable['rows'][theRowId]
         shadeRow.update(**kwargs)
 
-    def shadeDiscard(self):
-        self._shade = {}
+    def shadeDiscard(self, theTrId):
+        self._shade[theTrId] = {}
 
-    def shadeCommit(self):
-        for tbname, tbentry in self._shade.items():
+    def shadeCommit(self, theTrId):
+        for tbname, tbentry in self._shade[theTrId].items():
             for rowid, row in tbentry['rows'].items():
                 self.updateRowFromTable(tbname, rowid, **row.getRow())
-        self.shadeDiscard()
+        self.shadeDiscard(theTrId)
+
+    def trCreate(self):
+        self._DB__TR_ID += 1
+        _id = self._DB__TR_ID
+        self._shade.update({_id: {}})
+        return _id
+
+    def trUpdateRowFromTable(self, theTrId, theTableName, theRowId, **kwargs):
+        shade = self._shade[theTrId]
+        if theTableName not in shade:
+            self.shadeTable(theTrId, theTableName)
+        shadeTb = shade[theTableName]
+        if theRowId not in shadeTb['rows']:
+            self.shadeRow(theTrId, theTableName, theRowId)
+        self.shadeUpdateRow(theTrId, theTableName, theRowId, **kwargs)
+
+    def trDiscard(self, theTrId):
+        self.shadeDiscard(theTrId)
+
+    def trCommit(self, theTrId):
+        self.shadeCommit(theTrId)
+
+    def trClose(self, theTrId, theCommit=True):
+        if theCommit:
+            self.trCommit(theTrId)
+        else:
+            self.trDiscard(theTrId)
+        del self._shade[theTrId]
 
     def save(self):
         if not os.path.exists('_db_'):
