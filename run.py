@@ -4,7 +4,7 @@ sys.path.append('../jc2li')
 import shlex
 from base import Cli
 from decorators import argo, syntax, setsyntax
-from argtypes import Str
+from argtypes import Str, Int
 import loggerator
 from db import DB
 
@@ -15,6 +15,13 @@ class Dbase(Cli):
         super(Dbase, self).__init__()
         self._logger = loggerator.getLoggerator('Dbase')
         self._db = None
+
+    def _argosToDicta(self, theArgos):
+        dicta = {}
+        for arg in theArgos:
+            pname, pval = arg.split('=')
+            dicta.update({pname: pval})
+        return dicta
 
     # @Cli.command()
     # @setsyntax
@@ -44,10 +51,7 @@ class Dbase(Cli):
         print('create-table {0}'.format(shlex.split(args[0])))
         argos = shlex.split(args[0])
         tbName = argos[0]
-        dicta = {}
-        for arg in argos[1:]:
-            pname, pval = arg.split('=')
-            dicta.update({pname: pval})
+        dicta = self._argosToDicta(argos[1:])
         self._db.createTable(tbName, dicta)
 
     @Cli.command('CREATE-ROW')
@@ -57,29 +61,48 @@ class Dbase(Cli):
         print('create-row {0}'.format(shlex.split(args[0])))
         argos = shlex.split(args[0])
         tbName = argos[0]
-        dicta = {}
-        for arg in argos[1:]:
-            pname, pval = arg.split('=')
-            dicta.update({pname: pval})
+        dicta = self._argosToDicta(argos[1:])
         self._db.addRowToTable(tbName, **dicta)
 
-    @Cli.command('DISPLAY-TABLES')
-    def do_display_tables(self, *args):
-        """Display all tables created in the database.
+    @Cli.command('UPDATE-ROW')
+    def do_update_row(self, *args):
+        """Update a given row from a table.
+        """
+        print('update-row {0}'.format(shlex.split(args[0])))
+        argos = shlex.split(args[0])
+        tbName = argos[0]
+        rowId = int(argos[1])
+        dicta = self._argosToDicta(argos[2:])
+        self._db.updateRowFromTable(tbName, rowId, **dicta)
+
+    @Cli.command('SELECT-TABLES')
+    def do_select_tables(self, *args):
+        """Select all tables created in the database.
         """
         for x in self._db.getAllTableNames():
             print(x)
 
     @Cli.command()
     @setsyntax
-    @syntax('DISPLAY-TABLE tbname')
+    @syntax('SELECT-TABLE tbname')
     @argo('tbname', Str, None)
-    def do_display_table(self, tbname):
-        """Display the content for the <tbname> table.
+    def do_select_table(self, tbname):
+        """Select the content for the <tbname> table.
         """
-        print('display-table {0}'.format(tbname))
+        print('select-table {0}'.format(tbname))
         for row in self._db.getAllRowFromTable(tbname):
             print(row)
+
+    @Cli.command()
+    @setsyntax
+    @syntax('SELECT-ROW tbname rowid')
+    @argo('tbname', Str, None)
+    @argo('rowid', Int, None)
+    def do_select_row(self, tbname, rowid):
+        """Select a row from a table.
+        """
+        print('select-row {0} from table {1}'.format(rowid, tbname))
+        print(self._db.getRowFromTable(tbname, rowid))
 
     @Cli.command()
     @setsyntax
