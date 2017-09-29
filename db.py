@@ -1,103 +1,5 @@
 import os
-import json
-
-
-class DB_LINK(object):
-
-    def __init__(self, theTableName, theField, theValue, theLinkTable, theLinkRow):
-        self._linkTable = theLinkTable
-        self._linkRow = theLinkRow
-        self._table = theTableName
-        self._field = theField
-        self._value = theValue
-
-
-class DB_TABLE(object):
-
-    __ID = 0
-
-    @classmethod
-    def load(cls, theTableName, theFileName=None):
-        if theFileName is None:
-            filename = os.path.join('_db_', '{0}_db.json'.format(theTableName))
-        else:
-            filename = theFileName
-        filename = '_db_/{0}_db.json'.format(theTableName) if theFileName is None else theFileName
-        with open(filename, 'r') as fd:
-            data = json.loads(json.load(fd))
-            if len(data) == 0:
-                return None
-            tb = cls(theTableName, data[0])
-            for entry in data[1:]:
-                row = tb.createRow(**entry)
-                tb.Table.append(row)
-            return tb
-
-    def __init__(self, theName, theFields):
-        self.id = DB_TABLE.__ID + 1
-        DB_TABLE.__ID += 1
-        self.Name = theName
-        self.Fields = theFields
-        self.Table = []
-        self.RowCb = []
-        self.TableCb = []
-        self.RowId = 0
-        self.RegisterLinks = []
-        self.Row = DB_ROW
-
-    def createRow(self, **kwargs):
-        _id = kwargs.get('id', None)
-        if _id is None:
-            self.RowId += 1
-            kwargs['id'] = self.RowId
-        else:
-            if _id > self.RowId:
-                self.RowId = _id
-        row = self.Row()
-        for name, default in self.Fields.items():
-            setattr(row, name, default)
-        row.update(**kwargs)
-        return row
-
-    def createShadeRow(self, theNewFlag=False):
-        kwargs = {}
-        if theNewFlag:
-            self.RowId += 1
-            kwargs['id'] = self.RowId
-        row = self.Row()
-        row.update(**kwargs)
-        return row
-
-    def registerLink(self, theField, theValue, theLinkTable, theLinkRow):
-        self.RegisterLinks.append(DB_LINK(self.Name, theField, theValue, theLinkTable, theLinkRow))
-
-    def save(self, theFileName=None):
-        filename = '{0}_db.json'.format(self.Name) if theFileName is None else theFileName
-        with open(filename, 'w') as fd:
-            data = [self.Fields, ]
-            for row in self.Table:
-                data.extend([row.getRow(), ])
-            json.dump(json.dumps(data), fd)
-
-
-class DB_ROW(object):
-
-    def __init__(self, **kwargs):
-        self.update(**kwargs)
-
-    def getRow(self):
-        return self.__dict__
-
-    def update(self, **kwargs):
-        for k, v in kwargs.items():
-            setattr(self, k, v)
-
-    def clone(self):
-        return self.__class__(**self.__dict__)
-
-    def __repr__(self):
-        st = "\n".join(['{0}: {1}'.format(k, v) for k, v in self.getRow().items()])
-        return st + '\n'
+from db_table import DB_TABLE
 
 
 class DB(object):
@@ -122,40 +24,46 @@ class DB(object):
         for name in self._db.keys():
             yield name
 
+    def callRowCbs(self, theCondition, theTb, theRow):
+        for notif in theTb.RowCb.values():
+            if getattr(notif, theCondition)():
+                notif.Cb(self, theTb, theRow)
+
     def addRowToTable(self, theTableName, **kwargs):
         tb = self._db[theTableName]
         row = tb.createRow(**kwargs)
         tb.Table.append(row)
-        for cb in tb.RowCb:
-            cb(self, tb, row)
+        self.callRowCbs('inCreate', tb, row)
         return row
 
     def updateRowFromTable(self, theTableName, theId, **kwargs):
         tb = self._db[theTableName].Table
-        for entry in tb:
-            if entry.id == theId:
+        for row in tb:
+            if row.id == theId:
                 break
-        entry.update(**kwargs)
-        return entry
+        row.update(**kwargs)
+        self.callRowCbs('inUpdate', tb, row)
+        return row
 
     def deleteRowFromTable(self, theTableName, theId):
         tb = self._db[theTableName].Table
-        for index, entry in enumerate(tb):
-            if entry.id == theId:
+        for index, row in enumerate(tb):
+            if row.id == theId:
                 break
+        self.callRowCbs('inDelete', tb, row)
         del tb[index]
 
     def getRowFromTable(self, theTableName, theId):
         tb = self._db[theTableName].Table
-        for entry in tb:
-            if entry.id == theId:
-                return entry
+        for row in tb:
+            if row.id == theId:
+                return row
         return None
 
     def getAllRowFromTable(self, theTableName):
         tb = self._db[theTableName].Table
-        for entry in tb:
-            yield entry
+        for row in tb:
+            yield row
 
     def shadeTable(self, theTrId, theTableName):
         fields = self._db[theTableName].Fields
