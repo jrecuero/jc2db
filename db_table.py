@@ -77,3 +77,9 @@ class DB_TABLE(object):
             for row in self.Table:
                 data.extend([row.getRow(), ])
             json.dump(json.dumps(data), fd)
+
+    def getAsStr(self, thePattern):
+        st = self.Table[0].getAsStr(thePattern, True)
+        for row in self.Table:
+            st += row.getAsStr(thePattern)
+        return st

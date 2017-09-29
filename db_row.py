@@ -16,3 +16,9 @@ class DB_ROW(object):
     def __repr__(self):
         st = "\n".join(['{0}: {1}'.format(k, v) for k, v in self.getRow().items()])
         return st + '\n'
+
+    def getAsStr(self, thePattern, theHeaderFlag=False):
+        if theHeaderFlag:
+            return thePattern.format(*self.getRow().keys())
+        else:
+            return thePattern.format(*self.getRow().values())
