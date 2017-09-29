@@ -1,85 +1,85 @@
 import os
 import json
-from db_notif import DB_NOTIF, DB_LINK
-from db_row import DB_ROW
+from db_notif import DbNotif, DbLink
+from db_row import DbRow
 
 
-class DB_TABLE(object):
+class DbTable(object):
 
     __ID = 0
 
     @classmethod
-    def load(cls, theTableName, theFileName=None):
-        if theFileName is None:
-            filename = os.path.join('_db_', '{0}_db.json'.format(theTableName))
+    def load(cls, tablename, filename=None):
+        if filename is None:
+            filename = os.path.join('_db_', '{0}_db.json'.format(tablename))
         else:
-            filename = theFileName
-        filename = '_db_/{0}_db.json'.format(theTableName) if theFileName is None else theFileName
+            filename = filename
+        filename = '_db_/{0}_db.json'.format(tablename) if filename is None else filename
         with open(filename, 'r') as fd:
             data = json.loads(json.load(fd))
             if len(data) == 0:
                 return None
-            tb = cls(theTableName, data[0])
+            tb = cls(tablename, data[0])
             for row in data[1:]:
-                row = tb.createRow(**row)
-                tb.Table.append(row)
+                row = tb.create_row(**row)
+                tb.table.append(row)
             return tb
 
-    def __init__(self, theName, theFields):
-        self.id = DB_TABLE.__ID + 1
-        DB_TABLE.__ID += 1
-        self.Name = theName
-        self.Fields = theFields
-        self.Table = []
-        self.RowCb = {}
-        self.TableCb = {}
-        self.RowId = 0
-        self.RegisterLinks = []
-        self.Row = DB_ROW
+    def __init__(self, name, fields):
+        self.id = DbTable.__ID + 1
+        DbTable.__ID += 1
+        self.name = name
+        self.fields = fields
+        self.table = []
+        self._row_cb = {}
+        self._table_cb = {}
+        self._row_id = 0
+        self._registered_links = []
+        self.row = DbRow
 
-    def createRow(self, **kwargs):
-        _id = kwargs.get('id', None)
-        if _id is None:
-            self.RowId += 1
-            kwargs['id'] = self.RowId
+    def create_row(self, **kwargs):
+        id = kwargs.get('id', None)
+        if id is None:
+            self._row_id += 1
+            kwargs['id'] = self._row_id
         else:
-            if _id > self.RowId:
-                self.RowId = _id
-        row = self.Row()
-        for name, default in self.Fields.items():
+            if id > self._row_id:
+                self._row_id = id
+        row = self.row()
+        for name, default in self.fields.items():
             setattr(row, name, default)
         row.update(**kwargs)
         return row
 
-    def createShadeRow(self, theNewFlag=False):
+    def create_shadow_row(self, new_flag=False):
         kwargs = {}
-        if theNewFlag:
-            self.RowId += 1
-            kwargs['id'] = self.RowId
-        row = self.Row()
+        if new_flag:
+            self._row_id += 1
+            kwargs['id'] = self._row_id
+        row = self.row()
         row.update(**kwargs)
         return row
 
-    def registerRowCb(self, theName, theNotif, theCb):
-        notif = DB_NOTIF(theName, theNotif, theCb)
-        self.RowCb.update({theName: notif})
+    def register_row_cb(self, name, notif, cb):
+        notif = DbNotif(name, notif, cb)
+        self._row_cb.update({name: notif})
 
-    def unregisterRowCb(self, theName):
-        del self.RowCb[theName]
+    def unregister_row_cb(self, name):
+        del self._row_cb[name]
 
-    def registerLink(self, theField, theValue, theLinkTable, theLinkRow):
-        self.RegisterLinks.append(DB_LINK(self.Name, theField, theValue, theLinkTable, theLinkRow))
+    def register_link(self, field, value, link_table, link_row):
+        self._registered_links.append(DbLink(self.name, field, value, link_table, link_row))
 
-    def save(self, theFileName=None):
-        filename = '{0}_db.json'.format(self.Name) if theFileName is None else theFileName
+    def save(self, filename=None):
+        filename = '{0}_db.json'.format(self.name) if filename is None else filename
         with open(filename, 'w') as fd:
-            data = [self.Fields, ]
-            for row in self.Table:
-                data.extend([row.getRow(), ])
+            data = [self.fields, ]
+            for row in self.table:
+                data.extend([row.get_row(), ])
             json.dump(json.dumps(data), fd)
 
-    def getAsStr(self, thePattern):
-        st = self.Table[0].getAsStr(thePattern, True)
-        for row in self.Table:
-            st += row.getAsStr(thePattern)
+    def get_as_str(self, pattern):
+        st = self.table[0].get_as_str(pattern, True)
+        for row in self.table:
+            st += row.get_as_str(pattern)
         return st

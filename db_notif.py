@@ -1,7 +1,7 @@
 from enum import Flag, auto
 
 
-class E_Notif(Flag):
+class Notif(Flag):
 
     CREATE = auto()
     UPDATE = auto()
@@ -9,28 +9,28 @@ class E_Notif(Flag):
     ALL = CREATE | UPDATE | DELETE
 
 
-class DB_NOTIF(object):
+class DbNotif(object):
 
-    def __init__(self, theName, theNotif, theCb):
-        self.Name = theName
-        self.Notif = theNotif
-        self.Cb = theCb
+    def __init__(self, name, notif, cb):
+        self.name = name
+        self.notif = notif
+        self.Cb = cb
 
-    def inCreate(self):
-        return bool(self.Notif & E_Notif.CREATE)
+    def in_create(self):
+        return bool(self.notif & Notif.CREATE)
 
-    def inUpdate(self):
-        return bool(self.Notif & E_Notif.UPDATE)
+    def in_update(self):
+        return bool(self.notif & Notif.UPDATE)
 
-    def inDelete(self):
-        return bool(self.Notif & E_Notif.DELETE)
+    def in_delete(self):
+        return bool(self.notif & Notif.DELETE)
 
 
-class DB_LINK(object):
+class DbLink(object):
 
-    def __init__(self, theTableName, theField, theValue, theLinkTable, theLinkRow):
-        self._linkTable = theLinkTable
-        self._linkRow = theLinkRow
-        self._table = theTableName
-        self._field = theField
-        self._value = theValue
+    def __init__(self, table_name, field, value, link_table, link_row):
+        self.link_table = link_table
+        self.link_row = link_row
+        self.table = table_name
+        self.field = field
+        self.value = value

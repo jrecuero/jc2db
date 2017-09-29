@@ -1,138 +1,138 @@
 import os
-from db_table import DB_TABLE
+from db_table import DbTable
 
 
-class DB(object):
+class Db(object):
 
     __TR_ID = 0
 
-    def __init__(self, theName):
-        self.Name = theName
+    def __init__(self, name):
+        self.name = name
         self._db = {}
         self._shade = {}
 
-    def createTable(self, theTableName, theFields):
-        tb = DB_TABLE(theTableName, theFields)
-        self._db.update({theTableName: tb})
+    def create_table(self, tablename, fields):
+        tb = DbTable(tablename, fields)
+        self._db.update({tablename: tb})
         return tb
 
-    def getTableByName(self, theTableName):
-        tb = self._db[theTableName]
+    def get_table_by_name(self, tablename):
+        tb = self._db[tablename]
         return tb
 
-    def getAllTableNames(self):
+    def get_all_table_names(self):
         for name in self._db.keys():
             yield name
 
-    def callRowCbs(self, theCondition, theTb, theRow):
-        for notif in theTb.RowCb.values():
-            if getattr(notif, theCondition)():
-                notif.Cb(self, theTb, theRow)
+    def call_row_cbs(self, condition, table, row):
+        for notif in table.RowCb.values():
+            if getattr(notif, condition)():
+                notif.Cb(self, table, row)
 
-    def addRowToTable(self, theTableName, **kwargs):
-        tb = self._db[theTableName]
+    def add_row_to_table(self, tablename, **kwargs):
+        tb = self._db[tablename]
         row = tb.createRow(**kwargs)
-        tb.Table.append(row)
-        self.callRowCbs('inCreate', tb, row)
+        tb.table.append(row)
+        self.call_row_cbs('inCreate', tb, row)
         return row
 
-    def updateRowFromTable(self, theTableName, theId, **kwargs):
-        tb = self._db[theTableName].Table
+    def update_row_from_table(self, tablename, id, **kwargs):
+        tb = self._db[tablename].table
         for row in tb:
-            if row.id == theId:
+            if row.id == id:
                 break
         row.update(**kwargs)
-        self.callRowCbs('inUpdate', tb, row)
+        self.call_row_cbs('inUpdate', tb, row)
         return row
 
-    def deleteRowFromTable(self, theTableName, theId):
-        tb = self._db[theTableName].Table
+    def delete_row_from_table(self, tablename, id):
+        tb = self._db[tablename].table
         for index, row in enumerate(tb):
-            if row.id == theId:
+            if row.id == id:
                 break
-        self.callRowCbs('inDelete', tb, row)
+        self.call_row_cbs('inDelete', tb, row)
         del tb[index]
 
-    def getRowFromTable(self, theTableName, theId):
-        tb = self._db[theTableName].Table
+    def get_row_from_table(self, tablename, id):
+        tb = self._db[tablename].table
         for row in tb:
-            if row.id == theId:
+            if row.id == id:
                 return row
         return None
 
-    def getAllRowFromTable(self, theTableName):
-        tb = self._db[theTableName].Table
+    def get_all_row_from_table(self, tablename):
+        tb = self._db[tablename].table
         for row in tb:
             yield row
 
-    def shadeTable(self, theTrId, theTableName):
-        fields = self._db[theTableName].Fields
-        tb = DB_TABLE(theTableName, fields)
-        self._shade[theTrId].update({theTableName: {'table': tb, 'rows': {}}})
+    def shade_table(self, trid, tablename):
+        fields = self._db[tablename].Fields
+        tb = DbTable(tablename, fields)
+        self._shade[trid].update({tablename: {'table': tb, 'rows': {}}})
 
-    def shadeRow(self, theTrId, theTableName, theRowId):
-        shadeTable = self._shade[theTrId][theTableName]
-        newRowFlag = True if self.getRowFromTable(theTableName, theRowId) is None else False
-        row = shadeTable['table'].createShadeRow(newRowFlag)
-        shadeTable['rows'].update({theRowId: row})
+    def shade_row(self, trid, tablename, rowid):
+        shade_table = self._shade[trid][tablename]
+        newRowFlag = True if self.get_row_from_table(tablename, rowid) is None else False
+        row = shade_table['table'].createShadeRow(newRowFlag)
+        shade_table['rows'].update({rowid: row})
 
-    def shadeUpdateRow(self, theTrId, theTableName, theRowId, **kwargs):
-        shadeTable = self._shade[theTrId][theTableName]
-        shadeRow = shadeTable['rows'][theRowId]
+    def shade_update_row(self, trid, tablename, rowid, **kwargs):
+        shade_table = self._shade[trid][tablename]
+        shadeRow = shade_table['rows'][rowid]
         shadeRow.update(**kwargs)
 
-    def shadeDiscard(self, theTrId):
-        self._shade[theTrId] = {}
+    def shade_discard(self, trid):
+        self._shade[trid] = {}
 
-    def shadeCommit(self, theTrId):
-        for tbname, tbentry in self._shade[theTrId].items():
+    def shade_commit(self, trid):
+        for tbname, tbentry in self._shade[trid].items():
             for rowid, row in tbentry['rows'].items():
-                self.updateRowFromTable(tbname, rowid, **row.getRow())
-        self.shadeDiscard(theTrId)
+                self.update_row_from_table(tbname, rowid, **row.getRow())
+        self.shade_discard(trid)
 
-    def trCreate(self):
-        self._DB__TR_ID += 1
-        _id = self._DB__TR_ID
-        self._shade.update({_id: {}})
-        return _id
+    def tr_create(self):
+        self.Db__TR_ID += 1
+        id = self.Db__TR_ID
+        self._shade.update({id: {}})
+        return id
 
-    def trUpdateRowFromTable(self, theTrId, theTableName, theRowId, **kwargs):
-        shade = self._shade[theTrId]
-        if theTableName not in shade:
-            self.shadeTable(theTrId, theTableName)
-        shadeTb = shade[theTableName]
-        if theRowId not in shadeTb['rows']:
-            self.shadeRow(theTrId, theTableName, theRowId)
-        self.shadeUpdateRow(theTrId, theTableName, theRowId, **kwargs)
+    def tr_update_row_from_table(self, trid, tablename, rowid, **kwargs):
+        shade = self._shade[trid]
+        if tablename not in shade:
+            self.shade_table(trid, tablename)
+        shade_table = shade[tablename]
+        if rowid not in shade_table['rows']:
+            self.shadeRow(trid, tablename, rowid)
+        self.shade_update_row(trid, tablename, rowid, **kwargs)
 
-    def trDiscard(self, theTrId):
-        self.shadeDiscard(theTrId)
+    def tr_discard(self, trid):
+        self.shade_discard(trid)
 
-    def trCommit(self, theTrId):
-        self.shadeCommit(theTrId)
+    def tr_commit(self, trid):
+        self.shade_commit(trid)
 
-    def trClose(self, theTrId, theCommit=True):
-        if theCommit:
-            self.trCommit(theTrId)
+    def tr_close(self, trid, commit_flag=True):
+        if commit_flag:
+            self.tr_commit(trid)
         else:
-            self.trDiscard(theTrId)
-        del self._shade[theTrId]
+            self.tr_discard(trid)
+        del self._shade[trid]
 
     def save(self):
         if not os.path.exists('_db_'):
             os.makedirs('_db_')
-        path = os.path.join('_db_', self.Name)
+        path = os.path.join('_db_', self.name)
         if not os.path.exists(path):
             os.makedirs(path)
         for tbName, tb in self._db.items():
             tb.save(os.path.join(path, '{0}_db.json'.format(tbName)))
 
     def load(self):
-        path = os.path.join('_db_', self.Name)
+        path = os.path.join('_db_', self.name)
         if not os.path.exists(path):
             return
-        listDir = os.listdir(path)
-        for fName in listDir:
-            tbName = fName.split('/')[-1].split('_db.json')[0]
-            tb = DB_TABLE.load(tbName, os.path.abspath(os.path.join(path, fName)))
+        list_dir = os.listdir(path)
+        for filename in list_dir:
+            tbName = filename.split('/')[-1].split('_db.json')[0]
+            tb = DbTable.load(tbName, os.path.abspath(os.path.join(path, filename)))
             self._db.update({tbName: tb})
