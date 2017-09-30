@@ -1,9 +1,9 @@
-class DB_ROW(object):
+class DbRow(object):
 
     def __init__(self, **kwargs):
         self.update(**kwargs)
 
-    def getRow(self):
+    def get_row(self):
         return self.__dict__
 
     def update(self, **kwargs):
@@ -14,11 +14,11 @@ class DB_ROW(object):
         return self.__class__(**self.__dict__)
 
     def __repr__(self):
-        st = "\n".join(['{0}: {1}'.format(k, v) for k, v in self.getRow().items()])
+        st = "\n".join(['{0}: {1}'.format(k, v) for k, v in self.get_row().items()])
         return st + '\n'
 
-    def getAsStr(self, thePattern, theHeaderFlag=False):
-        if theHeaderFlag:
-            return thePattern.format(*self.getRow().keys())
+    def get_as_str(self, pattern, header_flag=False):
+        if header_flag:
+            return pattern.format(*self.get_row().keys())
         else:
-            return thePattern.format(*self.getRow().values())
+            return pattern.format(*self.get_row().values())
