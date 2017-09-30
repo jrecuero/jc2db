@@ -15,9 +15,9 @@ class Dbase(Cli):
         self._logger = loggerator.getLoggerator('Dbase')
         self._db = None
 
-    def _argos_to_dicta(self, theArgos):
+    def _argos_to_dicta(self, argos):
         dicta = {}
-        for arg in theArgos:
+        for arg in argos:
             pname, pval = arg.split('=')
             dicta.update({pname: pval})
         return dicta
@@ -153,7 +153,7 @@ if __name__ == '__main__':
 
     cli = Dbase()
     try:
-        cli.cmdloop(thePrompt='Dbase> ')
+        cli.cmdloop(prompt='Dbase> ')
     except KeyboardInterrupt:
         cli._logger.display("")
         pass
