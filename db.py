@@ -25,13 +25,13 @@ class Db(object):
             yield name
 
     def call_row_cbs(self, condition, table, row):
-        for notif in table.RowCb.values():
+        for notif in table._row_cb.values():
             if getattr(notif, condition)():
                 notif.Cb(self, table, row)
 
     def add_row_to_table(self, tablename, **kwargs):
         tb = self._db[tablename]
-        row = tb.createRow(**kwargs)
+        row = tb.create_row(**kwargs)
         tb.table.append(row)
         self.call_row_cbs('inCreate', tb, row)
         return row
@@ -73,13 +73,13 @@ class Db(object):
     def shade_row(self, trid, tablename, rowid):
         shade_table = self._shade[trid][tablename]
         newRowFlag = True if self.get_row_from_table(tablename, rowid) is None else False
-        row = shade_table['table'].createShadeRow(newRowFlag)
+        row = shade_table['table'].create_shade_row(newRowFlag)
         shade_table['rows'].update({rowid: row})
 
     def shade_update_row(self, trid, tablename, rowid, **kwargs):
         shade_table = self._shade[trid][tablename]
-        shadeRow = shade_table['rows'][rowid]
-        shadeRow.update(**kwargs)
+        shade_row = shade_table['rows'][rowid]
+        shade_row.update(**kwargs)
 
     def shade_discard(self, trid):
         self._shade[trid] = {}
@@ -102,7 +102,7 @@ class Db(object):
             self.shade_table(trid, tablename)
         shade_table = shade[tablename]
         if rowid not in shade_table['rows']:
-            self.shadeRow(trid, tablename, rowid)
+            self.shade_row(trid, tablename, rowid)
         self.shade_update_row(trid, tablename, rowid, **kwargs)
 
     def tr_discard(self, trid):

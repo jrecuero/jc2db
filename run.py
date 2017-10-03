@@ -3,7 +3,7 @@ sys.path.append('../jc2li')
 
 from base import Cli
 from decorators import argo, syntax, setsyntax
-from argtypes import Str, Int
+from argtypes import Str, Int, Dicta
 import loggerator
 from db import Db
 
@@ -32,24 +32,26 @@ class Dbase(Cli):
         print ('create-dbase {0}'.format(name))
         self._db = Db(name)
 
-    @Cli.command('CREATE-TABLE')
+    @Cli.command()
     @setsyntax
+    @syntax('CREATE-TABLE tbname [dicta]@')
     @argo('tbname', Str, None)
-    def do_create_table(self, tbname, lista):
+    @argo('dicta', Dicta, {})
+    def do_create_table(self, tbname, dicta):
         """Create a new database table in free format.
         """
-        print('create-table {0} {1}'.format(tbname, lista))
-        dicta = self._argos_to_dicta(lista)
+        print('create-table {0} {1}'.format(tbname, dicta))
         self._db.create_table(tbname, dicta)
 
-    @Cli.command('CREATE-ROW')
+    @Cli.command()
     @setsyntax
+    @syntax('CREATE-ROW tbname dicta')
     @argo('tbname', Str, None)
-    def do_create_row(self, tbname, lista):
+    @argo('dicta', Dicta, {})
+    def do_create_row(self, tbname, dicta):
         """Create a new table row in free format.
         """
-        print('create-row {0} {1}'.format(tbname, lista))
-        dicta = self._argos_to_dicta(lista)
+        print('create-row {0} {1}'.format(tbname, dicta))
         self._db.add_row_to_table(tbname, **dicta)
 
     @Cli.command('CREATE-TR')
@@ -59,25 +61,27 @@ class Dbase(Cli):
         _id = self._db.tr_create()
         print('create-tr {0}'.format(_id))
 
-    @Cli.command('UPDATE-ROW')
+    @Cli.command()
     @setsyntax
+    @syntax('UPDATE-ROW tbname rowid dicta')
     @argo('tbname', Str, None)
     @argo('rowid', Int, None)
-    def do_update_row(self, tbname, rowid, lista):
+    @argo('dicta', Dicta, {})
+    def do_update_row(self, tbname, rowid, dicta):
         """Update a given row from a table.
         """
-        print('update-row {0} {1} {2}'.format(tbname, rowid, lista))
-        dicta = self._argos_to_dicta(lista)
+        print('update-row {0} {1} {2}'.format(tbname, rowid, dicta))
         self._db.update_row_from_table(tbname, rowid, **dicta)
 
-    @Cli.command('UPDATE-TR-ROW')
+    @Cli.command()
     @setsyntax
+    @Cli.command('UPDATE-TR-ROW trid tbname rowid')
     @argo('trid', Int, None)
     @argo('tbname', Str, None)
     @argo('rowid', Int, None)
-    def do_update_tr_row(self, trid, tbname, rowid, lista):
-        print('update-tr-row {0} {1} {2} {3}'.format(trid, tbname, rowid, lista))
-        dicta = self._argos_to_dicta(lista)
+    @argo('dicta', Dicta, {})
+    def do_update_tr_row(self, trid, tbname, rowid, dicta):
+        print('update-tr-row {0} {1} {2} {3}'.format(trid, tbname, rowid, dicta))
         self._db.tr_update_row_from_table(trid, tbname, rowid, **dicta)
 
     @Cli.command()
