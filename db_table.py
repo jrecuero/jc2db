@@ -51,7 +51,7 @@ class DbTable(object):
         row.update(**kwargs)
         return row
 
-    def create_shade(self, new_flag=False):
+    def create_shade_row(self, new_flag=False):
         kwargs = {}
         if new_flag:
             self._row_id += 1

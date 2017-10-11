@@ -36,27 +36,27 @@ class Db(object):
         self.call_row_cbs('inCreate', tb, row)
         return row
 
-    def update_row_from_table(self, tablename, id, **kwargs):
+    def update_row_from_table(self, tablename, rowid, **kwargs):
         tb = self._db[tablename].table
         for row in tb:
-            if row.id == id:
+            if row.id == rowid:
                 break
         row.update(**kwargs)
         self.call_row_cbs('inUpdate', tb, row)
         return row
 
-    def delete_row_from_table(self, tablename, id):
+    def delete_row_from_table(self, tablename, rowid):
         tb = self._db[tablename].table
         for index, row in enumerate(tb):
-            if row.id == id:
+            if row.id == rowid:
                 break
         self.call_row_cbs('inDelete', tb, row)
         del tb[index]
 
-    def get_row_from_table(self, tablename, id):
+    def get_row_from_table(self, tablename, rowid):
         tb = self._db[tablename].table
         for row in tb:
-            if row.id == id:
+            if row.id == rowid:
                 return row
         return None
 
@@ -92,9 +92,9 @@ class Db(object):
 
     def tr_create(self):
         self.Db__TR_ID += 1
-        id = self.Db__TR_ID
-        self._shade.update({id: {}})
-        return id
+        tr_id = self.Db__TR_ID
+        self._shade.update({tr_id: {}})
+        return tr_id
 
     def tr_update_row_from_table(self, trid, tablename, rowid, **kwargs):
         shade = self._shade[trid]
@@ -104,6 +104,25 @@ class Db(object):
         if rowid not in shade_table['rows']:
             self.shade_row(trid, tablename, rowid)
         self.shade_update_row(trid, tablename, rowid, **kwargs)
+
+    def _merge_rows(self, main_row, updated_row):
+        merge_row = main_row.copy()
+        merge_row.update(updated_row)
+        return merge_row
+
+    def tr_get_row_from_table(self, trid, tablename, rowid):
+        shade = self._shade[trid]
+        row = self.get_row_from_table(tablename, rowid)
+        if tablename not in shade:
+            return row
+
+        shade_table = shade[tablename]
+        if rowid not in shade_table['rows']:
+            return row
+
+        shade_row = shade_table['rows'][rowid]
+        merged_row = self._merge_rows(row if row else {}, shade_row)
+        return merged_row
 
     def tr_discard(self, trid):
         self.shade_discard(trid)
