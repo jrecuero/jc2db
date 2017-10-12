@@ -1,6 +1,7 @@
 import os
 import threading
 from db_table import DbTable
+from db_status import DbStatus
 
 
 class Db(object):
@@ -28,7 +29,8 @@ class Db(object):
         return None
 
     def tr_create_table(self, trid, tablename, fields):
-        raise self._create_table(tablename, fields)
+        # TODO: TBD
+        return self._create_table(tablename, fields)
 
     def _create_table(self, tablename, fields):
         tb = DbTable(tablename, fields)
@@ -43,7 +45,8 @@ class Db(object):
             return self._create_table(tablename, fields)
 
     def tr_get_table_by_name(self, trid, tablename):
-        raise self._get_table_by_name(tablename)
+        # TODO: TBD
+        return self._get_table_by_name(tablename)
 
     def _get_table_by_name(self, tablename):
         tb = self._db[tablename]
@@ -57,6 +60,7 @@ class Db(object):
             return self._get_table_by_name(tablename)
 
     def tr_get_all_table_names(self, trid):
+        # TODO: TBD
         return self._get_all_table_names()
 
     def _get_all_table_names(self):
@@ -76,6 +80,7 @@ class Db(object):
                 notif.Cb(self, table, row)
 
     def tr_add_row_to_table(self, trid, tablename, **kwargs):
+        # TODO: TBD
         return self._add_row_to_table(tablename, **kwargs)
 
     def _add_row_to_table(self, tablename, **kwargs):
@@ -118,6 +123,7 @@ class Db(object):
             return self._update_row_from_table(tablename, rowid, **kwargs)
 
     def tr_delete_row_from_table(self, tablename, rowid):
+        # TODO: TBD
         return self._delete_row_from_table(tablename, rowid)
 
     def _delete_row_from_table(self, tablename, rowid):
@@ -164,6 +170,7 @@ class Db(object):
             return self._get_row_from_table(tablename, rowid)
 
     def tr_get_all_row_from_table(self, trid, tablename):
+        # TODO: TBD
         return self.get_all_row_from_table(tablename)
 
     def _get_all_row_from_table(self, tablename):
@@ -181,26 +188,68 @@ class Db(object):
     def shade_table(self, trid, tablename):
         fields = self._db[tablename].Fields
         tb = DbTable(tablename, fields)
-        self._shade[trid].update({tablename: {'table': tb, 'rows': {}}})
+        self._shade[trid].update({tablename: {'table': tb, 'rows': {}, 'status': DbStatus.UPDATED}})
+
+    def shade_create_table(self, trid, tablename, fields):
+        tb = DbTable(tablename, fields)
+        self._shade[trid].update({tablename: {'table': tb, 'rows': {}, 'status': DbStatus.CREATED}})
+
+    def shade_delete_table(self, trid, tablename):
+        fields = self._db[tablename].Fields
+        tb = DbTable(tablename, fields)
+        self._shade[trid].update({tablename: {'table': tb, 'rows': {}, 'status': DbStatus.DELETED}})
 
     def shade_row(self, trid, tablename, rowid):
         shade_table = self._shade[trid][tablename]
-        newRowFlag = True if self.get_row_from_table(tablename, rowid) is None else False
-        row = shade_table['table'].create_shade_row(newRowFlag)
-        shade_table['rows'].update({rowid: row})
+        if self.get_row_from_table(tablename, rowid) is None:
+            new_row_flag = True
+            status = DbStatus.CREATED
+        else:
+            new_row_flag = False
+            status = DbStatus.UPDATED
+        row = shade_table['table'].create_shade_row(new_row_flag)
+        shade_table['rows'].update({rowid: {'row': row, 'status': status}})
+
+    def shade_delete_row(self, trid, tablename, rowid):
+        shade_table = self._shade[trid][tablename]
+        row = shade_table['table'].create_shade_row()
+        shade_table['rows'].update({rowid: {'row': row, 'status': DbStatus.DELETED}})
 
     def shade_update_row(self, trid, tablename, rowid, **kwargs):
         shade_table = self._shade[trid][tablename]
-        shade_row = shade_table['rows'][rowid]
+        shade_row = shade_table['rows'][rowid]['row']
         shade_row.update(**kwargs)
 
     def shade_discard(self, trid):
         self._shade[trid] = {}
 
+    def _shade_commit_table_updated(self, tbname, rowid, rowentry):
+        if rowentry['status'] == DbStatus.UPDATED:
+            self.update_row_from_table(tbname, rowid, **rowentry['row'].getRow())
+        elif rowentry['status'] == DbStatus.CREATED:
+            raise NotImplementedError
+        elif rowentry['status'] == DbStatus.DELETED:
+            raise NotImplementedError
+        else:
+            raise TypeError('Unknow table {0} rowid {1} DbStatus: {2}'.format(tbname, rowid, rowentry['status']))
+
+    def _shade_commit_table_created(self, tbname, rowid, rowentry):
+        raise NotImplementedError
+
+    def _shade_commit_table_deleted(self, tbname, rowid, rowentry):
+        raise NotImplementedError
+
     def shade_commit(self, trid):
         for tbname, tbentry in self._shade[trid].items():
-            for rowid, row in tbentry['rows'].items():
-                self.update_row_from_table(tbname, rowid, **row.getRow())
+            for rowid, rowentry in tbentry['rows'].items():
+                if tbentry['status'] == DbStatus.UPDATED:
+                    self._shade_commit_table_updated(tbname, rowid, rowentry)
+                elif tbentry['status'] == DbStatus.CREATED:
+                    self._shade_commit_table_created(tbname, rowid, rowentry)
+                elif tbentry['status'] == DbStatus.DELETED:
+                    self._shade_commit_table_deleted(tbname, rowid, rowentry)
+                else:
+                    raise TypeError('Unknow table {0} DbStatus: {1}'.format(tbname, tbentry['status']))
         self.shade_discard(trid)
 
     def tr_create(self):
