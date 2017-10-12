@@ -1,4 +1,5 @@
 import os
+import threading
 from db_table import DbTable
 
 
@@ -10,33 +11,97 @@ class Db(object):
         self.name = name
         self._db = {}
         self._shade = {}
+        self._tr_pid = {}
 
-    def create_table(self, tablename, fields):
+    def _get_pid(self):
+        return {'pid': os.getid(), 'threadid': threading.get_ident()}
+
+    def _check_pid(self, pid):
+        app_pid = self._get_pid()
+        return app_pid == pid
+
+    def _check_call_in_tr(self, check_tr=True):
+        if check_tr:
+            for trid, pid in self._tr_pid.items():
+                if self._check_pid(pid):
+                    return trid
+        return None
+
+    def tr_create_table(self, trid, tablename, fields):
+        raise self._create_table(tablename, fields)
+
+    def _create_table(self, tablename, fields):
         tb = DbTable(tablename, fields)
         self._db.update({tablename: tb})
         return tb
 
-    def get_table_by_name(self, tablename):
+    def create_table(self, tablename, fields, check_tr=True):
+        trid = self._check_call_in_tr(check_tr)
+        if trid:
+            return self.tr_create_table(trid, tablename, fields)
+        else:
+            return self._create_table(tablename, fields)
+
+    def tr_get_table_by_name(self, trid, tablename):
+        raise self._get_table_by_name(tablename)
+
+    def _get_table_by_name(self, tablename):
         tb = self._db[tablename]
         return tb
 
-    def get_all_table_names(self):
+    def get_table_by_name(self, tablename, check_tr=True):
+        trid = self._check_call_in_tr(check_tr)
+        if trid:
+            return self.tr_get_table_by_name(tablename)
+        else:
+            return self._get_table_by_name(tablename)
+
+    def tr_get_all_table_names(self, trid):
+        return self._get_all_table_names()
+
+    def _get_all_table_names(self):
         for name in self._db.keys():
             yield name
+
+    def get_all_table_names(self, check_tr=True):
+        trid = self._check_call_in_tr(check_tr)
+        if trid:
+            return self._get_all_table_names(trid)
+        else:
+            return self._get_all_table_names()
 
     def call_row_cbs(self, condition, table, row):
         for notif in table._row_cb.values():
             if getattr(notif, condition)():
                 notif.Cb(self, table, row)
 
-    def add_row_to_table(self, tablename, **kwargs):
+    def tr_add_row_to_table(self, trid, tablename, **kwargs):
+        return self._add_row_to_table(tablename, **kwargs)
+
+    def _add_row_to_table(self, tablename, **kwargs):
         tb = self._db[tablename]
         row = tb.create_row(**kwargs)
         tb.table.append(row)
         self.call_row_cbs('inCreate', tb, row)
         return row
 
-    def update_row_from_table(self, tablename, rowid, **kwargs):
+    def add_row_to_table(self, tablename, check_tr=True, **kwargs):
+        trid = self._check_call_in_tr(check_tr)
+        if trid:
+            return self.tr_add_row_to_table(trid, tablename, **kwargs)
+        else:
+            return self._add_row_to_table(tablename, **kwargs)
+
+    def tr_update_row_from_table(self, trid, tablename, rowid, **kwargs):
+        shade = self._shade[trid]
+        if tablename not in shade:
+            self.shade_table(trid, tablename)
+        shade_table = shade[tablename]
+        if rowid not in shade_table['rows']:
+            self.shade_row(trid, tablename, rowid)
+        self.shade_update_row(trid, tablename, rowid, **kwargs)
+
+    def _update_row_from_table(self, tablename, rowid, **kwargs):
         tb = self._db[tablename].table
         for row in tb:
             if row.id == rowid:
@@ -45,7 +110,17 @@ class Db(object):
         self.call_row_cbs('inUpdate', tb, row)
         return row
 
-    def delete_row_from_table(self, tablename, rowid):
+    def update_row_from_table(self, tablename, rowid, check_tr=True, **kwargs):
+        trid = self._check_call_in_tr(check_tr)
+        if trid:
+            return self.tr_update_row_from_table(tablename, rowid, **kwargs)
+        else:
+            return self._update_row_from_table(tablename, rowid, **kwargs)
+
+    def tr_delete_row_from_table(self, tablename, rowid):
+        return self._delete_row_from_table(tablename, rowid)
+
+    def _delete_row_from_table(self, tablename, rowid):
         tb = self._db[tablename].table
         for index, row in enumerate(tb):
             if row.id == rowid:
@@ -53,17 +128,55 @@ class Db(object):
         self.call_row_cbs('inDelete', tb, row)
         del tb[index]
 
-    def get_row_from_table(self, tablename, rowid):
+    def delete_row_from_table(self, tablename, rowid, check_tr=True):
+        trid = self._check_call_in_tr(check_tr)
+        if trid:
+            return self.tr_delete_row_from_table(trid, tablename, rowid)
+        else:
+            return self._delete_row_from_table(tablename, rowid)
+
+    def tr_get_row_from_table(self, trid, tablename, rowid):
+        shade = self._shade[trid]
+        row = self.get_row_from_table(tablename, rowid)
+        if tablename not in shade:
+            return row
+
+        shade_table = shade[tablename]
+        if rowid not in shade_table['rows']:
+            return row
+
+        shade_row = shade_table['rows'][rowid]
+        merged_row = self._merge_rows(row if row else {}, shade_row)
+        return merged_row
+
+    def _get_row_from_table(self, tablename, rowid):
         tb = self._db[tablename].table
         for row in tb:
             if row.id == rowid:
                 return row
         return None
 
-    def get_all_row_from_table(self, tablename):
+    def get_row_from_table(self, tablename, rowid, check_tr=True):
+        trid = self._check_call_in_tr(check_tr)
+        if trid:
+            return self.tr_get_row_from_table(trid, tablename, rowid)
+        else:
+            return self._get_row_from_table(tablename, rowid)
+
+    def tr_get_all_row_from_table(self, trid, tablename):
+        return self.get_all_row_from_table(tablename)
+
+    def _get_all_row_from_table(self, tablename):
         tb = self._db[tablename].table
         for row in tb:
             yield row
+
+    def get_all_row_from_table(self, tablename, check_tr=True):
+        trid = self._check_call_in_tr(check_tr)
+        if trid:
+            return self.tr_get_all_row_from_table(trid, tablename)
+        else:
+            return self._get_all_row_from_table(tablename)
 
     def shade_table(self, trid, tablename):
         fields = self._db[tablename].Fields
@@ -92,37 +205,15 @@ class Db(object):
 
     def tr_create(self):
         self.Db__TR_ID += 1
-        tr_id = self.Db__TR_ID
-        self._shade.update({tr_id: {}})
-        return tr_id
-
-    def tr_update_row_from_table(self, trid, tablename, rowid, **kwargs):
-        shade = self._shade[trid]
-        if tablename not in shade:
-            self.shade_table(trid, tablename)
-        shade_table = shade[tablename]
-        if rowid not in shade_table['rows']:
-            self.shade_row(trid, tablename, rowid)
-        self.shade_update_row(trid, tablename, rowid, **kwargs)
+        trid = self.Db__TR_ID
+        self._shade.update({trid: {}})
+        self._tr_pid.update({trid: self._get_pid()})
+        return trid
 
     def _merge_rows(self, main_row, updated_row):
         merge_row = main_row.copy()
         merge_row.update(updated_row)
         return merge_row
-
-    def tr_get_row_from_table(self, trid, tablename, rowid):
-        shade = self._shade[trid]
-        row = self.get_row_from_table(tablename, rowid)
-        if tablename not in shade:
-            return row
-
-        shade_table = shade[tablename]
-        if rowid not in shade_table['rows']:
-            return row
-
-        shade_row = shade_table['rows'][rowid]
-        merged_row = self._merge_rows(row if row else {}, shade_row)
-        return merged_row
 
     def tr_discard(self, trid):
         self.shade_discard(trid)
