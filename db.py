@@ -15,7 +15,7 @@ class Db(object):
         self._tr_pid = {}
 
     def _get_pid(self):
-        return {'pid': os.getid(), 'threadid': threading.get_ident()}
+        return {'pid': os.getpid(), 'threadid': threading.get_ident()}
 
     def _check_pid(self, pid):
         app_pid = self._get_pid()
@@ -27,6 +27,9 @@ class Db(object):
                 if self._check_pid(pid):
                     return trid
         return None
+
+    def is_in_tr(self):
+        return self._check_call_in_tr()
 
     def tr_create_table(self, trid, tablename, fields):
         # TODO: TBD
@@ -100,7 +103,7 @@ class Db(object):
     def tr_update_row_from_table(self, trid, tablename, rowid, **kwargs):
         shade_table = self._shade.get_table_from_tr(trid, tablename)
         if shade_table is None:
-            self._shade.add_table_updated(trid, tablename)
+            shade_table = self._shade.add_table_updated(trid, tablename)
         if rowid not in shade_table['rows']:
             self._shade.add_row_updated(trid, tablename, rowid)
         self._shade.update_row(trid, tablename, rowid, **kwargs)
@@ -111,13 +114,13 @@ class Db(object):
             if row.id == rowid:
                 break
         row.update(**kwargs)
-        self.call_row_cbs('inUpdate', tb, row)
+        self.call_row_cbs('inUpdate', self._db[tablename], row)
         return row
 
     def update_row_from_table(self, tablename, rowid, check_tr=True, **kwargs):
         trid = self._check_call_in_tr(check_tr)
         if trid:
-            return self.tr_update_row_from_table(tablename, rowid, **kwargs)
+            return self.tr_update_row_from_table(trid, tablename, rowid, **kwargs)
         else:
             return self._update_row_from_table(tablename, rowid, **kwargs)
 
@@ -130,7 +133,7 @@ class Db(object):
         for index, row in enumerate(tb):
             if row.id == rowid:
                 break
-        self.call_row_cbs('inDelete', tb, row)
+        self.call_row_cbs('inDelete', self._db[tablename], row)
         del tb[index]
 
     def delete_row_from_table(self, tablename, rowid, check_tr=True):
@@ -142,10 +145,10 @@ class Db(object):
 
     def tr_get_row_from_table(self, trid, tablename, rowid):
         shade_row = self._shade.get_row_from_tr(trid, tablename, rowid)
-        row = self.get_row_from_table(tablename, rowid)
+        row = self.get_row_from_table(tablename, rowid, False)
         if shade_row is None:
             return row
-        merged_row = self._merge_rows(row if row else {}, shade_row)
+        merged_row = self._merge_rows(row, shade_row)
         return merged_row
 
     def _get_row_from_table(self, tablename, rowid):
@@ -179,45 +182,51 @@ class Db(object):
             return self._get_all_row_from_table(tablename)
 
     def tr_create(self):
-        self.Db__TR_ID += 1
-        trid = self.Db__TR_ID
+        self.__TR_ID += 1
+        trid = self.__TR_ID
         self._shade.new_tr(trid)
         self._tr_pid.update({trid: self._get_pid()})
         return trid
 
     def _merge_rows(self, main_row, updated_row):
-        merge_row = main_row.copy()
-        merge_row.update(updated_row)
+        if main_row:
+            merge_row = main_row.clone()
+            merge_row.update(**updated_row.get_row())
+        else:
+            merge_row = updated_row
         return merge_row
 
     def tr_discard(self, trid):
-        self._shade.discard(trid)
+        return self._shade.discard(trid)
 
     def tr_commit(self, trid):
-        self._shade.commit(trid)
+        return self._shade.commit(trid)
 
     def tr_close(self, trid, commit_flag=True):
         if commit_flag:
-            self.tr_commit(trid)
+            ret = self.tr_commit(trid)
         else:
-            self.tr_discard(trid)
+            ret = self.tr_discard(trid)
         self._shade.del_tr(trid)
+        return ret
 
-    def save(self):
-        if not os.path.exists('_db_'):
-            os.makedirs('_db_')
-        path = os.path.join('_db_', self.name)
+    def save(self, default_path='_db_'):
+        if not os.path.exists(default_path):
+            os.makedirs(default_path)
+        path = os.path.join(default_path, self.name)
         if not os.path.exists(path):
             os.makedirs(path)
         for tbName, tb in self._db.items():
-            tb.save(os.path.join(path, '{0}_db.json'.format(tbName)))
+            tb.save(os.path.join(path, '{0}_db.json'.format(tbName)), default_path)
+        return True
 
-    def load(self):
-        path = os.path.join('_db_', self.name)
+    def load(self, default_path='_db_'):
+        path = os.path.join(default_path, self.name)
         if not os.path.exists(path):
-            return
+            return False
         list_dir = os.listdir(path)
         for filename in list_dir:
             tbName = filename.split('/')[-1].split('_db.json')[0]
-            tb = DbTable.load(tbName, os.path.abspath(os.path.join(path, filename)))
+            tb = DbTable.load(tbName, os.path.abspath(os.path.join(path, filename)), default_path)
             self._db.update({tbName: tb})
+        return True

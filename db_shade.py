@@ -21,7 +21,7 @@ class DbShade(object):
             return None
 
     def get_row_from_tr(self, trid, tablename, rowid):
-        if self.is_row_in_tr(trid, tablename):
+        if self.is_row_in_tr(trid, tablename, rowid):
             return self._db[trid][tablename]['rows'][rowid]['row']
         else:
             return None
@@ -35,31 +35,43 @@ class DbShade(object):
     def add_table_updated(self, trid, tablename):
         fields = self._dbase.get_table_by_name(tablename, False)
         tb = DbTable(tablename, fields)
-        self._db[trid].update({tablename: {'table': tb, 'rows': {}, 'status': DbStatus.UPDATED}})
+        tb_entry = {tablename: {'table': tb, 'rows': {}, 'status': DbStatus.UPDATED}}
+        self._db[trid].update(tb_entry)
+        return tb_entry[tablename]
 
     def add_table_created(self, trid, tablename, fields):
         tb = DbTable(tablename, fields)
-        self._db[trid].update({tablename: {'table': tb, 'rows': {}, 'status': DbStatus.CREATED}})
+        tb_entry = {tablename: {'table': tb, 'rows': {}, 'status': DbStatus.CREATED}}
+        self._db[trid].update(tb_entry)
+        return tb_entry[tablename]
 
     def add_table_deleted(self, trid, tablename):
         fields = self._dbase.get_table_by_name(tablename, False)
         tb = DbTable(tablename, fields)
-        self._db[trid].update({tablename: {'table': tb, 'rows': {}, 'status': DbStatus.DELETED}})
+        tb_entry = {tablename: {'table': tb, 'rows': {}, 'status': DbStatus.DELETED}}
+        self._db[trid].update(tb_entry)
+        return tb_entry[tablename]
 
     def add_row_updated(self, trid, tablename, rowid):
         shade_table = self._db[trid][tablename]
         row = shade_table['table'].create_shade_row(False)
-        shade_table['rows'].update({rowid: {'row': row, 'status': DbStatus.UPDATED}})
+        row_entry = {rowid: {'row': row, 'status': DbStatus.UPDATED}}
+        shade_table['rows'].update(row_entry)
+        return row_entry
 
     def add_row_created(self, trid, tablename, rowid):
         shade_table = self._db[trid][tablename]
         row = shade_table['table'].create_shade_row(True)
-        shade_table['rows'].update({rowid: {'row': row, 'status': DbStatus.CREATED}})
+        row_entry = {rowid: {'row': row, 'status': DbStatus.CREATED}}
+        shade_table['rows'].update(row_entry)
+        return row_entry
 
     def add_row_deleted(self, trid, tablename, rowid):
         shade_table = self._db[trid][tablename]
         row = shade_table['table'].create_shade_row()
-        shade_table['rows'].update({rowid: {'row': row, 'status': DbStatus.DELETED}})
+        row_entry = {rowid: {'row': row, 'status': DbStatus.DELETED}}
+        shade_table['rows'].update(row_entry)
+        return row_entry
 
     def update_row(self, trid, tablename, rowid, **kwargs):
         shade_table = self._db[trid][tablename]
@@ -68,6 +80,7 @@ class DbShade(object):
 
     def discard(self, trid):
         self._db[trid] = {}
+        return True
 
     def _commit_table_updated(self, tbname, rowid, rowentry):
         if rowentry['status'] == DbStatus.UPDATED:
@@ -96,4 +109,5 @@ class DbShade(object):
                     self._commit_table_deleted(tbname, rowid, rowentry)
                 else:
                     raise TypeError('Unknow table {0} DbStatus: {1}'.format(tbname, tbentry['status']))
-        self._db.discard(trid)
+        self.discard(trid)
+        return True

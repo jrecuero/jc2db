@@ -9,12 +9,12 @@ class DbTable(object):
     __ID = 0
 
     @classmethod
-    def load(cls, tablename, filename=None):
+    def load(cls, tablename, filename=None, default_path='_db_'):
         if filename is None:
-            filename = os.path.join('_db_', '{0}_db.json'.format(tablename))
+            filename = os.path.join(default_path, '{0}_db.json'.format(tablename))
         else:
             filename = filename
-        filename = '_db_/{0}_db.json'.format(tablename) if filename is None else filename
+        filename = '{0}/{1}_db.json'.format(default_path, tablename) if filename is None else filename
         with open(filename, 'r') as fd:
             data = json.loads(json.load(fd))
             if len(data) == 0:
@@ -70,7 +70,7 @@ class DbTable(object):
     def register_link(self, field, value, link_table, link_row):
         self._registered_links.append(DbLink(self.name, field, value, link_table, link_row))
 
-    def save(self, filename=None):
+    def save(self, filename=None, default_path='_db_'):
         filename = '{0}_db.json'.format(self.name) if filename is None else filename
         with open(filename, 'w') as fd:
             data = [self.fields, ]
