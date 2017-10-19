@@ -1,11 +1,6 @@
-import sys
 import pytest
-
-src_path = '.'
-sys.path.append(src_path)
-
-from db import Db
-from db_shade import DbShade
+from jc2db.db import Db
+from jc2db.db_shade import DbShade
 
 
 @pytest.fixture(params=['test'])

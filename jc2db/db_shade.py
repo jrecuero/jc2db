@@ -1,5 +1,5 @@
-from db_status import DbStatus
-from db_table import DbTable
+from jc2db.db_status import DbStatus
+from jc2db.db_table import DbTable
 
 
 class DbShade(object):

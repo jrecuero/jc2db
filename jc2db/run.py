@@ -1,11 +1,8 @@
-import sys
-sys.path.append('../jc2li')
-
-from base import Cli
-from decorators import argo, syntax, setsyntax
-from argtypes import Str, Int, Dicta
-import loggerator
-from db import Db
+from jc2li.cli import Cli
+from jc2li.decorators import argo, syntax, setsyntax
+from jc2li.argtypes import Str, Int, Dicta
+import jc2li.loggerator as loggerator
+from jc2db.db import Db
 
 
 class Dbase(Cli):
@@ -29,7 +26,7 @@ class Dbase(Cli):
     def do_create_dbase(self, name):
         """Create a new database.
         """
-        print ('create-dbase {0}'.format(name))
+        print('create-dbase {0}'.format(name))
         self._db = Db(name)
 
     @Cli.command()

@@ -1,7 +1,7 @@
 import os
 import threading
-from db_table import DbTable
-from db_shade import DbShade
+from jc2db.db_table import DbTable
+from jc2db.db_shade import DbShade
 
 
 class Db(object):

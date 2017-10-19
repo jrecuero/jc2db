@@ -1,7 +1,7 @@
 import os
 import json
-from db_notif import DbNotif, DbLink
-from db_row import DbRow
+from jc2db.db_notif import DbNotif, DbLink
+from jc2db.db_row import DbRow
 
 
 class DbTable(object):
