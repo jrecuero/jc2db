@@ -1,160 +1,155 @@
-from jc2li.cli import Cli
-from jc2li.decorators import argo, syntax, setsyntax
-from jc2li.argtypes import Str, Int, Dicta
-import jc2li.loggerator as loggerator
+from jc2cli.namespace import Handler
+from jc2cli.decorators import command, argo
+from jc2cli.builtin.argos import Str, Int, Dicta
+import jc2cli.tools.loggerator as loggerator
 from jc2db.db import Db
 
 
-class Dbase(Cli):
+MODULE = 'DBASE.db_commands'
+logger = loggerator.getLoggerator(MODULE)
+dbase = None
 
-    def __init__(self):
-        super(Dbase, self).__init__()
-        self._logger = loggerator.getLoggerator('Dbase')
-        self._db = None
 
-    def _argos_to_dicta(self, argos):
-        dicta = {}
-        for arg in argos:
-            pname, pval = arg.split('=')
-            dicta.update({pname: pval})
-        return dicta
+@command('CREATE-DBASE name')
+@argo('name', Str(), None)
+def do_create_dbase(name):
+    """Create a new database.
+    """
+    global dbase
+    logger.display('create-dbase {0}'.format(name))
+    dbase = Db(name)
+    return True
 
-    @Cli.command()
-    @setsyntax
-    @syntax('CREATE-DBASE name')
-    @argo('name', Str, None)
-    def do_create_dbase(self, name):
-        """Create a new database.
-        """
-        print('create-dbase {0}'.format(name))
-        self._db = Db(name)
 
-    @Cli.command()
-    @setsyntax
-    @syntax('CREATE-TABLE tbname [dicta]@')
-    @argo('tbname', Str, None)
-    @argo('dicta', Dicta, {})
-    def do_create_table(self, tbname, dicta):
-        """Create a new database table in free format.
-        """
-        print('create-table {0} {1}'.format(tbname, dicta))
-        self._db.create_table(tbname, dicta)
+@command('CREATE-TABLE tbname [dicta]@')
+@argo('tbname', Str(), None)
+@argo('dicta', Dicta(), {})
+def do_create_table(tbname, dicta):
+    """Create a new database table in free format.
+    """
+    logger.display('create-table {0} {1}'.format(tbname, dicta))
+    dbase.create_table(tbname, dicta)
+    return True
 
-    @Cli.command()
-    @setsyntax
-    @syntax('CREATE-ROW tbname dicta')
-    @argo('tbname', Str, None)
-    @argo('dicta', Dicta, {})
-    def do_create_row(self, tbname, dicta):
-        """Create a new table row in free format.
-        """
-        print('create-row {0} {1}'.format(tbname, dicta))
-        self._db.add_row_to_table(tbname, **dicta)
 
-    @Cli.command('CREATE-TR')
-    def do_create_tr(self, *args):
-        """Create a new database transaction.
-        """
-        _id = self._db.tr_create()
-        print('create-tr {0}'.format(_id))
+@command('CREATE-ROW tbname [dicta]@')
+@argo('tbname', Str(), None)
+@argo('dicta', Dicta(), {})
+def do_create_row(tbname, dicta):
+    """Create a new table row in free format.
+    """
+    logger.display('create-row {0} {1}'.format(tbname, dicta))
+    dbase.add_row_to_table(tbname, **dicta)
+    return True
 
-    @Cli.command()
-    @setsyntax
-    @syntax('UPDATE-ROW tbname rowid dicta')
-    @argo('tbname', Str, None)
-    @argo('rowid', Int, None)
-    @argo('dicta', Dicta, {})
-    def do_update_row(self, tbname, rowid, dicta):
-        """Update a given row from a table.
-        """
-        print('update-row {0} {1} {2}'.format(tbname, rowid, dicta))
-        self._db.update_row_from_table(tbname, rowid, **dicta)
 
-    @Cli.command()
-    @setsyntax
-    @Cli.command('UPDATE-TR-ROW trid tbname rowid')
-    @argo('trid', Int, None)
-    @argo('tbname', Str, None)
-    @argo('rowid', Int, None)
-    @argo('dicta', Dicta, {})
-    def do_update_tr_row(self, trid, tbname, rowid, dicta):
-        print('update-tr-row {0} {1} {2} {3}'.format(trid, tbname, rowid, dicta))
-        self._db.tr_update_row_from_table(trid, tbname, rowid, **dicta)
+@command('CREATE-TR')
+def do_create_tr(*args):
+    """Create a new database transaction.
+    """
+    _id = dbase.tr_create()
+    logger.display('create-tr {0}'.format(_id))
+    return True
 
-    @Cli.command()
-    @setsyntax
-    @syntax('COMMIT-TR trid')
-    @argo('trid', Int, None)
-    def do_commit_tr(self, trid):
-        print('commit-tr {0}'.format(trid))
-        self._db.tr_close(trid)
 
-    @Cli.command()
-    @setsyntax
-    @syntax('CANCEL-TR trid')
-    @argo('trid', Int, None)
-    def do_cancel_tr(self, trid):
-        print('cancel-tr {0}'.format(trid))
-        self._db.tr_close(trid, False)
+@command('UPDATE-ROW tbname rowid [dicta]@')
+@argo('tbname', Str(), None)
+@argo('rowid', Int(), None)
+@argo('dicta', Dicta(), {})
+def do_update_row(tbname, rowid, dicta):
+    """Update a given row from a table.
+    """
+    logger.display('update-row {0} {1} {2}'.format(tbname, rowid, dicta))
+    dbase.update_row_from_table(tbname, rowid, **dicta)
+    return True
 
-    @Cli.command('SELECT-TABLES')
-    def do_select_tables(self, *args):
-        """Select all tables created in the database.
-        """
-        for tbname in self._db.get_all_table_names():
-            print(tbname)
 
-    @Cli.command()
-    @setsyntax
-    @syntax('SELECT-TABLE tbname')
-    @argo('tbname', Str, None)
-    def do_select_table(self, tbname):
-        """Select the content for the <tbname> table.
-        """
-        print('select-table {0}'.format(tbname))
-        for row in self._db.get_all_row_from_table(tbname):
-            print(row)
+@command('UPDATE-TR-ROW trid tbname rowid [dicta]@')
+@argo('trid', Int(), None)
+@argo('tbname', Str(), None)
+@argo('rowid', Int(), None)
+@argo('dicta', Dicta(), {})
+def do_update_tr_row(trid, tbname, rowid, dicta):
+    logger.display('update-tr-row {0} {1} {2} {3}'.format(trid, tbname, rowid, dicta))
+    dbase.tr_update_row_from_table(trid, tbname, rowid, **dicta)
+    return True
 
-    @Cli.command()
-    @setsyntax
-    @syntax('SELECT-ROW tbname rowid')
-    @argo('tbname', Str, None)
-    @argo('rowid', Int, None)
-    def do_select_row(self, tbname, rowid):
-        """Select a row from a table.
-        """
-        print('select-row {0} from table {1}'.format(rowid, tbname))
-        print(self._db.get_row_from_table(tbname, rowid))
 
-    @Cli.command()
-    @setsyntax
-    @syntax('DISPLAY-TABLE-FORMAT tbname')
-    @argo('tbname', Str, None)
-    def do_display_table_format(self, tbname):
-        """Display the format for the <tbname> table.
-        """
-        print(self._db.get_table_by_name(tbname).Fields)
+@command('COMMIT-TR trid')
+@argo('trid', Int(), None)
+def do_commit_tr(trid):
+    logger.display('commit-tr {0}'.format(trid))
+    dbase.tr_close(trid)
+    return True
 
-    @Cli.command('SAVE')
-    def do_save(self, *args):
-        """Save database.
-        """
-        print('save database')
-        self._db.save()
 
-    @Cli.command('LOAD')
-    def do_load(self, *args):
-        """Load database.
-        """
-        print('load database')
-        self._db.load()
+@command('CANCEL-TR trid')
+@argo('trid', Int(), None)
+def do_cancel_tr(trid):
+    logger.display('cancel-tr {0}'.format(trid))
+    dbase.tr_close(trid, False)
+    return True
+
+
+@command('SELECT-TABLES')
+def do_select_tables(*args):
+    """Select all tables created in the database.
+    """
+    for tbname in dbase.get_all_table_names():
+        logger.display(tbname)
+    return True
+
+
+@command('SELECT-TABLE tbname')
+@argo('tbname', Str(), None)
+def do_select_table(tbname):
+    """Select the content for the <tbname> table.
+    """
+    logger.display('select-table {0}'.format(tbname))
+    for row in dbase.get_all_row_from_table(tbname):
+        logger.display(row)
+    return True
+
+
+@command('SELECT-ROW tbname rowid')
+@argo('tbname', Str(), None)
+@argo('rowid', Int(), None)
+def do_select_row(tbname, rowid):
+    """Select a row from a table.
+    """
+    logger.display('select-row {0} from table {1}'.format(rowid, tbname))
+    logger.display(dbase.get_row_from_table(tbname, rowid))
+    return True
+
+
+@command('DISPLAY-TABLE-FORMAT tbname')
+@argo('tbname', Str(), None)
+def do_display_table_format(tbname):
+    """Display the format for the <tbname> table.
+    """
+    logger.display(dbase.get_table_by_name(tbname).fields)
+    return True
+
+
+@command('SAVE')
+def do_save(*args):
+    """Save database.
+    """
+    logger.display('save database')
+    dbase.save()
+    return True
+
+
+@command('LOAD')
+def do_load(*args):
+    """Load database.
+    """
+    logger.display('load database')
+    dbase.load()
+    return True
 
 
 if __name__ == '__main__':
-
-    cli = Dbase()
-    try:
-        cli.cmdloop(prompt='Dbase> ')
-    except KeyboardInterrupt:
-        cli._logger.display("")
-        pass
+    h = Handler()
+    h.create_namespace('__main__')
+    h.switch_and_run_namespace('__main__')
