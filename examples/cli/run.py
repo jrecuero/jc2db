@@ -152,4 +152,4 @@ def do_load(*args):
 if __name__ == '__main__':
     h = Handler()
     h.create_namespace('__main__')
-    h.switch_and_run_namespace('__main__')
+    h.switch_and_run_cli_for_namespace('__main__')
